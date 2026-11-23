@@ -85,8 +85,10 @@ function setUserRole(role) {
   const soldierBtn = document.getElementById("role-soldier-btn");
   const officerBtn = document.getElementById("role-officer-btn");
   const branchSelect = document.getElementById("branch-select");
-  const monthlyRange = document.getElementById("monthly-amount-range");
-  const monthlyGuide = document.getElementById("monthly-guide-text");
+  const soldierSavingsSection = document.getElementById("soldier-savings-section");
+  const officerSavingsSection = document.getElementById("officer-savings-section");
+  const extraRateCol = document.getElementById("extra-rate-col");
+  const rateLabel1 = document.getElementById("rate-label-1");
   const interestGuide = document.getElementById("interest-guide");
   const officerBonusSection = document.getElementById("officer-bonus-section");
   const formSubtitle = document.getElementById("form-subtitle");
@@ -95,65 +97,107 @@ function setUserRole(role) {
   const labelSupport = document.getElementById("label-support");
   const enlistLabel = document.getElementById("enlist-label");
 
+  // 1. 복무 형태 셀렉트박스 먼저 재구성
+  if (branchSelect && BRANCH_OPTIONS[role]) {
+    branchSelect.innerHTML = "";
+    BRANCH_OPTIONS[role].forEach(opt => {
+      const el = document.createElement("option");
+      el.value = opt.value;
+      el.innerText = opt.label;
+      branchSelect.appendChild(el);
+    });
+  }
+
+  // 2. 신분별 UI 전환
   if (role === "soldier") {
     soldierBtn.className = "py-2 rounded-lg bg-white text-emerald-800 shadow-sm transition";
     officerBtn.className = "py-2 rounded-lg text-slate-500 hover:text-slate-800 transition";
 
-    formSubtitle.innerText = "병사(장병내일준비적금 정부 100% 매칭지원금 적용)";
+    formSubtitle.innerText = "병사(내일준비적금 100% 매칭 + 추가 자유적금 합산 지원)";
     badgeTitle.innerText = "병사 전역 시 최종 목돈";
-    badgeDesc.innerText = "(원금 + 우대이자 + 정부 100% 매칭금)";
+    badgeDesc.innerText = "(내일준비적금 + 정부100%매칭 + 추가적금 원리금)";
     labelSupport.innerText = "정부 100% 매칭금";
     enlistLabel.innerText = "입대일";
 
-    monthlyRange.min = 100000;
-    monthlyRange.max = 400000;
-    monthlyRange.step = 50000;
-    monthlyRange.value = 400000;
-    monthlyGuide.innerHTML = "<span>10만원</span><span>20만원(1개 은행)</span><span>40만원(최대)</span>";
-    interestGuide.innerText = "※ 병사: 장병내일준비적금 평균 우대금리 약 5.0% (비과세)";
+    if (soldierSavingsSection) soldierSavingsSection.classList.remove("hidden");
+    if (officerSavingsSection) officerSavingsSection.classList.add("hidden");
+    if (extraRateCol) extraRateCol.classList.remove("hidden");
+    if (rateLabel1) rateLabel1.innerText = "내일준비 금리 (%)";
+    const intInput = document.getElementById("interest-rate");
+    if (intInput) intInput.value = "5.0";
+    if (interestGuide) interestGuide.innerText = "※ 내일준비적금(5% 비과세 + 정부100% 매칭) 및 추가적금(우대금리) 적용";
+    if (officerBonusSection) officerBonusSection.classList.add("hidden");
 
-    officerBonusSection.classList.add("hidden");
+    handleBranchChange();
+    updateSoldierSavings();
   } else {
     officerBtn.className = "py-2 rounded-lg bg-white text-emerald-800 shadow-sm transition";
     soldierBtn.className = "py-2 rounded-lg text-slate-500 hover:text-slate-800 transition";
 
-    formSubtitle.innerText = "초급간부(군인공제회/우대적금 저축 + 단기복무 장려금/퇴직금)";
+    formSubtitle.innerText = "초급간부(군인공제회 200만 + 추가 자유저축 300만 2단 플랜)";
     badgeTitle.innerText = "간부 전역 시 최종 목돈";
-    badgeDesc.innerText = "(급여 저축원금 + 이자수익 + 단기복무 장려금)";
+    badgeDesc.innerText = "(공제회 원리금 + 추가적금 원리금 + 단기복무 장려금)";
     labelSupport.innerText = "단기복무 장려금/수당";
     enlistLabel.innerText = "임관(입대)일";
 
-    monthlyRange.min = 100000;
-    monthlyRange.max = 2000000;
-    monthlyRange.step = 100000;
-    monthlyRange.value = 1000000;
-    monthlyGuide.innerHTML = "<span>10만원</span><span>100만원(추천)</span><span>200만원(최대)</span>";
-    interestGuide.innerText = "※ 간부: 군인공제회/청년도약계좌/군우대적금 평균 금리 약 4.5%~5.5%";
+    if (soldierSavingsSection) soldierSavingsSection.classList.add("hidden");
+    if (officerSavingsSection) officerSavingsSection.classList.remove("hidden");
+    if (extraRateCol) extraRateCol.classList.remove("hidden");
+    if (rateLabel1) rateLabel1.innerText = "군인공제회 금리 (%)";
+    const intInput = document.getElementById("interest-rate");
+    if (intInput) intInput.value = "4.8";
+    if (interestGuide) interestGuide.innerText = "※ 군인공제회(복리 우대) 및 시중은행 우대적금/청년도약계좌 금리 적용";
+    if (officerBonusSection) officerBonusSection.classList.remove("hidden");
 
-    officerBonusSection.classList.remove("hidden");
+    handleBranchChange();
+    updateOfficerSavings();
   }
-
-  branchSelect.innerHTML = "";
-  BRANCH_OPTIONS[role].forEach(opt => {
-    const el = document.createElement("option");
-    el.value = opt.value;
-    el.innerText = opt.label;
-    branchSelect.appendChild(el);
-  });
-
-  updateMonthlyAmount(monthlyRange.value);
-  handleBranchChange();
 }
 
-function updateMonthlyAmount(val) {
-  const num = parseInt(val, 10);
-  document.getElementById("monthly-amount-text").innerText = num.toLocaleString("ko-KR") + "원";
+// 병사 저축 슬라이더 갱신
+function updateSoldierSavings() {
+  const tomorrowRange = document.getElementById("tomorrow-amount-range");
+  const extraRange = document.getElementById("extra-amount-range");
+
+  const tomorrowVal = tomorrowRange ? parseInt(tomorrowRange.value, 10) : 400000;
+  const extraVal = extraRange ? parseInt(extraRange.value, 10) : 0;
+  const totalVal = tomorrowVal + extraVal;
+
+  const tomorrowText = document.getElementById("tomorrow-amount-text");
+  const extraText = document.getElementById("extra-amount-text");
+  const totalText = document.getElementById("soldier-total-monthly-text");
+
+  if (tomorrowText) tomorrowText.innerText = tomorrowVal.toLocaleString("ko-KR") + "원";
+  if (extraText) extraText.innerText = extraVal.toLocaleString("ko-KR") + "원";
+  if (totalText) totalText.innerText = totalVal.toLocaleString("ko-KR") + "원";
+
+  calculateSavings();
+}
+
+// 간부 저축 슬라이더 갱신 (공제회 + 추가 저축)
+function updateOfficerSavings() {
+  const baseRange = document.getElementById("officer-base-range");
+  const extraRange = document.getElementById("officer-extra-range");
+
+  const baseVal = baseRange ? parseInt(baseRange.value, 10) : 1000000;
+  const extraVal = extraRange ? parseInt(extraRange.value, 10) : 500000;
+  const totalVal = baseVal + extraVal;
+
+  const baseText = document.getElementById("officer-base-amount-text");
+  const extraText = document.getElementById("officer-extra-amount-text");
+  const totalText = document.getElementById("officer-total-monthly-text");
+
+  if (baseText) baseText.innerText = baseVal.toLocaleString("ko-KR") + "원";
+  if (extraText) extraText.innerText = extraVal.toLocaleString("ko-KR") + "원";
+  if (totalText) totalText.innerText = totalVal.toLocaleString("ko-KR") + "원";
+
   calculateSavings();
 }
 
 function updateOfficerBonus(val) {
   const num = parseInt(val, 10) || 0;
-  document.getElementById("officer-bonus-text").innerText = num.toLocaleString("ko-KR") + "원";
+  const textEl = document.getElementById("officer-bonus-text");
+  if (textEl) textEl.innerText = num.toLocaleString("ko-KR") + "원";
   calculateSavings();
 }
 
@@ -183,8 +227,6 @@ function handleBranchChange() {
 // ==========================================
 function calculateSavings() {
   const branchSelect = document.getElementById("branch-select");
-  const monthlyAmount = parseInt(document.getElementById("monthly-amount-range").value, 10);
-  const annualRate = parseFloat(document.getElementById("interest-rate").value) / 100;
 
   let totalMonths = currentRole === "soldier" ? 18 : 28;
   const enlistDateVal = document.getElementById("enlist-date").value;
@@ -199,14 +241,53 @@ function calculateSavings() {
     totalMonths = parseInt(branchSelect.value, 10);
   }
 
-  const totalPrincipal = monthlyAmount * totalMonths;
-  const monthlyRate = annualRate / 12;
-  const totalInterest = Math.round(monthlyAmount * monthlyRate * (totalMonths * (totalMonths + 1) / 2));
+  let totalPrincipal = 0;
+  let totalInterest = 0;
+  let thirdAmount = 0; // 병사: 정부 100% 매칭금 / 간부: 단기복무 장려금
 
-  let thirdAmount = 0;
   if (currentRole === "soldier") {
-    thirdAmount = totalPrincipal + totalInterest;
+    const tomorrowRange = document.getElementById("tomorrow-amount-range");
+    const extraRange = document.getElementById("extra-amount-range");
+    const tomorrowMonthly = tomorrowRange ? parseInt(tomorrowRange.value, 10) : 400000;
+    const extraMonthly = extraRange ? parseInt(extraRange.value, 10) : 0;
+
+    // 1) 원금 합계
+    const tomorrowPrincipal = tomorrowMonthly * totalMonths;
+    const extraPrincipal = extraMonthly * totalMonths;
+    totalPrincipal = tomorrowPrincipal + extraPrincipal;
+
+    // 2) 이자 계산 (단리 공식)
+    const rateTomorrow = (parseFloat(document.getElementById("interest-rate").value) || 5.0) / 100;
+    const extraRateEl = document.getElementById("extra-interest-rate");
+    const rateExtra = (extraRateEl ? parseFloat(extraRateEl.value) || 4.0 : 4.0) / 100;
+
+    const tomorrowInterest = Math.round(tomorrowMonthly * (rateTomorrow / 12) * (totalMonths * (totalMonths + 1) / 2));
+    const extraInterest = Math.round(extraMonthly * (rateExtra / 12) * (totalMonths * (totalMonths + 1) / 2));
+    totalInterest = tomorrowInterest + extraInterest;
+
+    // 3) 정부 100% 매칭지원금은 '내일준비적금 원리금'에만 전액 지원
+    thirdAmount = tomorrowPrincipal + tomorrowInterest;
   } else {
+    const baseRange = document.getElementById("officer-base-range");
+    const extraRange = document.getElementById("officer-extra-range");
+    const baseMonthly = baseRange ? parseInt(baseRange.value, 10) : 1000000;
+    const extraMonthly = extraRange ? parseInt(extraRange.value, 10) : 500000;
+
+    // 1) 간부 원금 합계
+    const basePrincipal = baseMonthly * totalMonths;
+    const extraPrincipal = extraMonthly * totalMonths;
+    totalPrincipal = basePrincipal + extraPrincipal;
+
+    // 2) 이자 계산 (공제회 금리 + 추가적금 금리)
+    const rateBase = (parseFloat(document.getElementById("interest-rate").value) || 4.8) / 100;
+    const extraRateEl = document.getElementById("extra-interest-rate");
+    const rateExtra = (extraRateEl ? parseFloat(extraRateEl.value) || 4.0 : 4.0) / 100;
+
+    const baseInterest = Math.round(baseMonthly * (rateBase / 12) * (totalMonths * (totalMonths + 1) / 2));
+    const extraInterest = Math.round(extraMonthly * (rateExtra / 12) * (totalMonths * (totalMonths + 1) / 2));
+    totalInterest = baseInterest + extraInterest;
+
+    // 3) 단기복무 장려금/수당/퇴직금
     const bonusInput = document.getElementById("officer-bonus-input");
     thirdAmount = bonusInput ? (parseInt(bonusInput.value, 10) || 0) : 0;
   }
@@ -221,11 +302,11 @@ function calculateSavings() {
   // 목표 탭의 총액 갱신
   syncGoalTotalFund(currentGrandTotal);
 
-  renderSavingsChart(totalMonths, monthlyAmount, monthlyRate, thirdAmount);
+  renderSavingsChart(totalMonths, thirdAmount);
 }
 
 // 차트 렌더링
-function renderSavingsChart(months, monthlyAmount, monthlyRate, thirdTotalAmount) {
+function renderSavingsChart(months, thirdTotalAmount) {
   const ctx = document.getElementById("savingsChart").getContext("2d");
   const labels = [];
   const principalData = [];
@@ -235,15 +316,48 @@ function renderSavingsChart(months, monthlyAmount, monthlyRate, thirdTotalAmount
   const thirdLabel = currentRole === "soldier" ? "정부 100% 매칭지원금" : "단기복무 장려금/수당";
   const thirdColor = currentRole === "soldier" ? "#06b6d4" : "#6366f1";
 
-  for (let m = 1; m <= months; m++) {
-    labels.push(m + "개월");
-    const p = monthlyAmount * m;
-    const i = Math.round(monthlyAmount * monthlyRate * (m * (m + 1) / 2));
-    const t = currentRole === "soldier" ? (p + i) : Math.round((thirdTotalAmount / months) * m);
+  if (currentRole === "soldier") {
+    const tomorrowRange = document.getElementById("tomorrow-amount-range");
+    const extraRange = document.getElementById("extra-amount-range");
+    const tomorrowMonthly = tomorrowRange ? parseInt(tomorrowRange.value, 10) : 400000;
+    const extraMonthly = extraRange ? parseInt(extraRange.value, 10) : 0;
+    const rateTomorrow = (parseFloat(document.getElementById("interest-rate").value) || 5.0) / 100;
+    const extraRateEl = document.getElementById("extra-interest-rate");
+    const rateExtra = (extraRateEl ? parseFloat(extraRateEl.value) || 4.0 : 4.0) / 100;
 
-    principalData.push(p);
-    interestData.push(i);
-    thirdData.push(t);
+    for (let m = 1; m <= months; m++) {
+      labels.push(m + "개월");
+      const p = (tomorrowMonthly + extraMonthly) * m;
+      const iTomorrow = Math.round(tomorrowMonthly * (rateTomorrow / 12) * (m * (m + 1) / 2));
+      const iExtra = Math.round(extraMonthly * (rateExtra / 12) * (m * (m + 1) / 2));
+      const i = iTomorrow + iExtra;
+      const match = (tomorrowMonthly * m) + iTomorrow;
+
+      principalData.push(p);
+      interestData.push(i);
+      thirdData.push(match);
+    }
+  } else {
+    const baseRange = document.getElementById("officer-base-range");
+    const extraRange = document.getElementById("officer-extra-range");
+    const baseMonthly = baseRange ? parseInt(baseRange.value, 10) : 1000000;
+    const extraMonthly = extraRange ? parseInt(extraRange.value, 10) : 500000;
+    const rateBase = (parseFloat(document.getElementById("interest-rate").value) || 4.8) / 100;
+    const extraRateEl = document.getElementById("extra-interest-rate");
+    const rateExtra = (extraRateEl ? parseFloat(extraRateEl.value) || 4.0 : 4.0) / 100;
+
+    for (let m = 1; m <= months; m++) {
+      labels.push(m + "개월");
+      const p = (baseMonthly + extraMonthly) * m;
+      const iBase = Math.round(baseMonthly * (rateBase / 12) * (m * (m + 1) / 2));
+      const iExtra = Math.round(extraMonthly * (rateExtra / 12) * (m * (m + 1) / 2));
+      const i = iBase + iExtra;
+      const t = Math.round((thirdTotalAmount / months) * m);
+
+      principalData.push(p);
+      interestData.push(i);
+      thirdData.push(t);
+    }
   }
 
   if (savingsChartInstance) {

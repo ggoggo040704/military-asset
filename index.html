@@ -113,26 +113,94 @@
               </div>
             </div>
 
-            <!-- 월 적금액 -->
-            <div>
-              <div class="flex justify-between items-center mb-1">
-                <label class="text-xs font-semibold text-slate-600" id="monthly-label">월 총 적금액</label>
-                <span class="text-xs font-bold text-emerald-700" id="monthly-amount-text">400,000원</span>
+            <!-- 병사 모드: 내일준비적금(정부매칭) + 추가 자유적금 2단 저축 플랜 -->
+            <div id="soldier-savings-section" class="space-y-3 bg-slate-50 border border-slate-200 rounded-xl p-3.5">
+              <!-- 1. 장병내일준비적금 -->
+              <div>
+                <div class="flex justify-between items-center mb-1">
+                  <span class="text-xs font-bold text-emerald-900">① 장병내일준비적금 (정부 100% 매칭)</span>
+                  <span class="text-xs font-bold text-emerald-700" id="tomorrow-amount-text">400,000원</span>
+                </div>
+                <input type="range" id="tomorrow-amount-range" min="100000" max="400000" step="50000" value="400000" class="w-full accent-emerald-600 cursor-pointer" oninput="updateSoldierSavings()">
+                <div class="flex justify-between text-[10px] text-slate-400 mt-0.5">
+                  <span>10만원</span>
+                  <span>20만원(1개 은행)</span>
+                  <span>40만원(내일준비 한도)</span>
+                </div>
               </div>
-              <input type="range" id="monthly-amount-range" min="100000" max="400000" step="50000" value="400000" class="w-full accent-emerald-600 cursor-pointer" oninput="updateMonthlyAmount(this.value)">
-              <div class="flex justify-between text-[11px] text-slate-400 mt-1" id="monthly-guide-text">
-                <span>10만원</span>
-                <span>20만원(1개 은행)</span>
-                <span>40만원(최대)</span>
+
+              <!-- 2. 추가 일반 적금 / 청년도약계좌 / 시중 군우대적금 -->
+              <div class="pt-2.5 border-t border-slate-200">
+                <div class="flex justify-between items-center mb-1">
+                  <span class="text-xs font-bold text-slate-700">② 추가 저축 (청년도약/군우대/자유적금)</span>
+                  <span class="text-xs font-bold text-teal-700" id="extra-amount-text">0원</span>
+                </div>
+                <input type="range" id="extra-amount-range" min="0" max="1600000" step="50000" value="0" class="w-full accent-teal-600 cursor-pointer" oninput="updateSoldierSavings()">
+                <div class="flex justify-between text-[10px] text-slate-400 mt-0.5">
+                  <span>0원</span>
+                  <span>50만원</span>
+                  <span>100만원</span>
+                  <span>160만원(최대)</span>
+                </div>
+              </div>
+
+              <!-- 월 총 저축액 합계 배지 -->
+              <div class="bg-white rounded-lg p-2.5 flex justify-between items-center border border-emerald-200/70 shadow-sm">
+                <span class="text-xs font-semibold text-slate-600">👉 이번 달 총 저축액 합계:</span>
+                <span class="text-sm font-extrabold text-emerald-800" id="soldier-total-monthly-text">400,000원</span>
               </div>
             </div>
 
-            <!-- 은행 금리 -->
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">적용 금리 (연이율, %)</label>
-              <input type="number" id="interest-rate" value="5.0" step="0.1" min="1" max="15" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none" oninput="calculateSavings()">
-              <p class="text-[11px] text-slate-400 mt-1" id="interest-guide">※ 병사: 장병내일준비적금 평균 우대금리 약 5.0% (비과세)</p>
+            <!-- 간부 모드: 군인공제회 + 추가 저축 2단 저축 플랜 -->
+            <div id="officer-savings-section" class="hidden space-y-3 bg-slate-50 border border-slate-200 rounded-xl p-3.5">
+              <!-- 1. 군인공제회 기본 저축 -->
+              <div>
+                <div class="flex justify-between items-center mb-1">
+                  <span class="text-xs font-bold text-emerald-900">① 군인공제회 저축 (복리 우대 혜택)</span>
+                  <span class="text-xs font-bold text-emerald-700" id="officer-base-amount-text">1,000,000원</span>
+                </div>
+                <input type="range" id="officer-base-range" min="100000" max="2000000" step="100000" value="1000000" class="w-full accent-emerald-600 cursor-pointer" oninput="updateOfficerSavings()">
+                <div class="flex justify-between text-[10px] text-slate-400 mt-0.5">
+                  <span>10만원</span>
+                  <span>100만원(추천)</span>
+                  <span>200만원(공제회 한도)</span>
+                </div>
+              </div>
+
+              <!-- 2. 추가 일반 적금 / 청년도약계좌 / 시중은행 -->
+              <div class="pt-2.5 border-t border-slate-200">
+                <div class="flex justify-between items-center mb-1">
+                  <span class="text-xs font-bold text-slate-700">② 추가 저축 (청년도약/시중은행/CMA)</span>
+                  <span class="text-xs font-bold text-teal-700" id="officer-extra-amount-text">500,000원</span>
+                </div>
+                <input type="range" id="officer-extra-range" min="0" max="3000000" step="100000" value="500000" class="w-full accent-teal-600 cursor-pointer" oninput="updateOfficerSavings()">
+                <div class="flex justify-between text-[10px] text-slate-400 mt-0.5">
+                  <span>0원</span>
+                  <span>100만원</span>
+                  <span>200만원</span>
+                  <span>300만원(최대)</span>
+                </div>
+              </div>
+
+              <!-- 간부 월 총 저축액 합계 배지 -->
+              <div class="bg-white rounded-lg p-2.5 flex justify-between items-center border border-emerald-200/70 shadow-sm">
+                <span class="text-xs font-semibold text-slate-600">👉 간부 한 달 총 저축액 합계:</span>
+                <span class="text-sm font-extrabold text-emerald-800" id="officer-total-monthly-text">1,500,000원</span>
+              </div>
             </div>
+
+            <!-- 금리 설정 -->
+            <div class="grid grid-cols-2 gap-3" id="rates-container">
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1" id="rate-label-1">내일준비 금리 (%)</label>
+                <input type="number" id="interest-rate" value="5.0" step="0.1" min="1" max="15" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none" oninput="calculateSavings()">
+              </div>
+              <div id="extra-rate-col">
+                <label class="block text-xs font-semibold text-slate-600 mb-1">추가적금 금리 (%)</label>
+                <input type="number" id="extra-interest-rate" value="4.0" step="0.1" min="1" max="15" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none" oninput="calculateSavings()">
+              </div>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-1" id="interest-guide">※ 내일준비적금(5% 비과세 + 정부100% 매칭) 및 추가적금(우대금리) 적용</p>
 
             <!-- [간부 전용 옵션] 단기복무 장려금 및 퇴직일시금 -->
             <div id="officer-bonus-section" class="hidden bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 space-y-2">
