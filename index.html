@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>군 복무 목돈 모으기 & 전역 후 자금 설계 시뮬레이터 (병사 & 간부)</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Supabase JS Client CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Pretendard Web Font -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+  
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans">
+
+  <!-- 상단 네비게이션 헤더 -->
+  <header class="bg-emerald-800 text-white shadow-md sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center space-x-3">
+        <span class="text-2xl">🎖️</span>
+        <div>
+          <h1 class="font-bold text-lg leading-tight">군 복무 목돈 & 전역 후 자금 설계기</h1>
+          <p class="text-xs text-emerald-200">병사(내일준비적금) & 간부(부사관·장교 저축/장려금) 통합 자산 관리</p>
+        </div>
+      </div>
+      
+      <!-- Supabase 연동 상태 표시 배지 -->
+      <div class="flex items-center space-x-3">
+        <div id="supabase-status" class="flex items-center bg-emerald-950/60 px-3 py-1.5 rounded-full text-xs font-medium border border-emerald-600/50">
+          <span class="w-2.5 h-2.5 rounded-full bg-amber-400 mr-2 animate-pulse" id="status-indicator"></span>
+          <span id="status-text" class="text-emerald-100">Supabase 연결 확인 중...</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- 탭 메뉴 바 -->
+  <nav class="bg-white border-b border-slate-200 shadow-sm sticky top-[60px] z-40">
+    <div class="max-w-6xl mx-auto px-4 flex space-x-2 sm:space-x-4">
+      <button onclick="switchTab('tab-simulator')" id="btn-tab-simulator" class="tab-btn active-tab py-3.5 px-4 font-semibold text-sm border-b-2 flex items-center space-x-2">
+        <i class="fa-solid fa-calculator text-emerald-700"></i>
+        <span>1. 목돈 모으기 시뮬레이터</span>
+      </button>
+      <button onclick="switchTab('tab-ledger')" id="btn-tab-ledger" class="tab-btn py-3.5 px-4 font-semibold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center space-x-2">
+        <i class="fa-solid fa-receipt text-slate-400"></i>
+        <span>2. 군 생활 가계부 (PX·외출)</span>
+      </button>
+      <button onclick="switchTab('tab-goals')" id="btn-tab-goals" class="tab-btn py-3.5 px-4 font-semibold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center space-x-2">
+        <i class="fa-solid fa-bullseye text-slate-400"></i>
+        <span>3. 전역 후 목표 자금 배분</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- 메인 콘텐츠 영역 -->
+  <main class="max-w-6xl mx-auto px-4 py-8 flex-1 w-full">
+    
+    <!-- [1번 탭] 목돈 계산기 화면 -->
+    <section id="tab-simulator" class="tab-content block">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- 입력 폼 카드 -->
+        <div class="lg:col-span-5 bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+          <div class="flex items-center space-x-2 pb-4 mb-4 border-b border-slate-100">
+            <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
+              <i class="fa-solid fa-sliders"></i>
+            </div>
+            <div>
+              <h2 class="text-base font-bold text-slate-800">복무 및 자산 설계 조건</h2>
+              <p class="text-xs text-slate-500" id="form-subtitle">병사(정부 100% 매칭지원금) / 간부(저축+장려금)</p>
+            </div>
+          </div>
+
+          <form id="calc-form" class="space-y-4" onsubmit="event.preventDefault(); calculateSavings();">
+            
+            <!-- 신분 선택 (병사 vs 간부 토글) -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1.5">복무 신분 구분</label>
+              <div class="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl text-xs font-bold text-center">
+                <button type="button" id="role-soldier-btn" onclick="setUserRole('soldier')" class="py-2 rounded-lg bg-white text-emerald-800 shadow-sm transition">
+                  <i class="fa-solid fa-person-military-pointing mr-1"></i> 병사 / 대체복무
+                </button>
+                <button type="button" id="role-officer-btn" onclick="setUserRole('officer')" class="py-2 rounded-lg text-slate-500 hover:text-slate-800 transition">
+                  <i class="fa-solid fa-medal mr-1"></i> 간부 (부사관 · 장교)
+                </button>
+              </div>
+            </div>
+
+            <!-- 군별 복무 형태 선택 -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1" id="branch-select-label">복무 형태 (복무 기간)</label>
+              <select id="branch-select" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none" onchange="handleBranchChange()">
+                <!-- JS에서 동적 주입 -->
+              </select>
+            </div>
+
+            <!-- 입대(임관)일 & 전역일 -->
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1" id="enlist-label">입대일</label>
+                <input type="date" id="enlist-date" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none" onchange="handleBranchChange()">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">전역 예정일</label>
+                <input type="date" id="discharge-date" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none" onchange="calculateSavings()">
+              </div>
+            </div>
+
+            <!-- 월 적금액 -->
+            <div>
+              <div class="flex justify-between items-center mb-1">
+                <label class="text-xs font-semibold text-slate-600" id="monthly-label">월 총 적금액</label>
+                <span class="text-xs font-bold text-emerald-700" id="monthly-amount-text">400,000원</span>
+              </div>
+              <input type="range" id="monthly-amount-range" min="100000" max="400000" step="50000" value="400000" class="w-full accent-emerald-600 cursor-pointer" oninput="updateMonthlyAmount(this.value)">
+              <div class="flex justify-between text-[11px] text-slate-400 mt-1" id="monthly-guide-text">
+                <span>10만원</span>
+                <span>20만원(1개 은행)</span>
+                <span>40만원(최대)</span>
+              </div>
+            </div>
+
+            <!-- 은행 금리 -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">적용 금리 (연이율, %)</label>
+              <input type="number" id="interest-rate" value="5.0" step="0.1" min="1" max="15" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none" oninput="calculateSavings()">
+              <p class="text-[11px] text-slate-400 mt-1" id="interest-guide">※ 병사: 장병내일준비적금 평균 우대금리 약 5.0% (비과세)</p>
+            </div>
+
+            <!-- [간부 전용 옵션] 단기복무 장려금 및 퇴직일시금 -->
+            <div id="officer-bonus-section" class="hidden bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 space-y-2">
+              <div class="flex justify-between items-center">
+                <label class="text-xs font-bold text-emerald-900">🎖️ 단기복무 장려금 / 수당 (선택)</label>
+                <span class="text-[11px] text-emerald-700 font-semibold" id="officer-bonus-text">12,000,000원</span>
+              </div>
+              <input type="number" id="officer-bonus-input" value="12000000" step="500000" min="0" max="50000000" class="w-full border border-emerald-300 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none" oninput="updateOfficerBonus(this.value)">
+              <p class="text-[10px] text-emerald-700">※ 학군장교(ROTC) 장려금 약 1,200만원, 학사·부사관 장려수당 등 전역 시 추가 목돈 반영</p>
+            </div>
+
+            <!-- 계산 실행 버튼 -->
+            <button type="button" onclick="calculateSavings()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg text-sm shadow transition duration-150 flex items-center justify-center space-x-2">
+              <i class="fa-solid fa-calculator"></i>
+              <span>예상 수령액 계산하기</span>
+            </button>
+          </form>
+        </div>
+
+        <!-- 결과 요약 및 차트 카드 -->
+        <div class="lg:col-span-7 space-y-6">
+          <!-- 총 수령액 하이라이트 박스 -->
+          <div class="bg-gradient-to-br from-emerald-800 to-teal-900 rounded-2xl p-6 text-white shadow-md relative overflow-hidden">
+            <div class="relative z-10">
+              <div class="flex items-center space-x-2 mb-2">
+                <span class="inline-block bg-emerald-700/80 text-emerald-100 text-xs px-2.5 py-1 rounded-full font-semibold" id="badge-role-title">병사 전역 시 최종 목돈</span>
+                <span class="text-xs text-emerald-300" id="badge-role-desc">(원금 + 이자 + 정부 100% 매칭지원금)</span>
+              </div>
+              <div class="flex items-baseline space-x-2">
+                <span class="text-3xl sm:text-4xl font-extrabold tracking-tight" id="result-total">14,970,000</span>
+                <span class="text-lg font-bold text-emerald-200">원</span>
+              </div>
+              
+              <!-- 세부 내역 3단 분할 -->
+              <div class="grid grid-cols-3 gap-2 mt-6 pt-4 border-t border-emerald-700/60 text-center">
+                <div class="bg-white/10 rounded-xl p-2.5">
+                  <div class="text-[11px] text-emerald-200 mb-0.5">내가 넣은 총 원금</div>
+                  <div class="text-sm sm:text-base font-bold" id="result-principal">7,200,000원</div>
+                </div>
+                <div class="bg-white/10 rounded-xl p-2.5">
+                  <div class="text-[11px] text-emerald-200 mb-0.5" id="label-interest">은행 이자 (연 5%)</div>
+                  <div class="text-sm sm:text-base font-bold text-amber-300" id="result-interest">285,000원</div>
+                </div>
+                <div class="bg-white/10 rounded-xl p-2.5">
+                  <div class="text-[11px] text-emerald-200 mb-0.5" id="label-support">정부 100% 매칭금</div>
+                  <div class="text-sm sm:text-base font-bold text-cyan-300" id="result-match">7,485,000원</div>
+                </div>
+              </div>
+            </div>
+            
+            <i class="fa-solid fa-piggy-bank absolute -right-6 -bottom-6 text-white/10 text-9xl"></i>
+          </div>
+
+          <!-- 누적 자산 성장 그래프 -->
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <h3 class="text-sm font-bold text-slate-700 mb-3 flex items-center space-x-2">
+              <i class="fa-solid fa-chart-line text-emerald-600"></i>
+              <span>복무 개월별 자산 누적 시뮬레이션 그래프</span>
+            </h3>
+            <div class="w-full h-64">
+              <canvas id="savingsChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- [2번 탭] 군 생활 가계부 화면 (Supabase 실시간 연동) -->
+    <section id="tab-ledger" class="tab-content hidden">
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-4 border-b border-slate-100 gap-2">
+          <div>
+            <h2 class="text-base font-bold text-slate-800 flex items-center space-x-2">
+              <span>PX · 외출 · 군 생활 지출 가계부</span>
+              <span class="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-semibold">Supabase 클라우드 실시간 동기화</span>
+            </h2>
+            <p class="text-xs text-slate-500 mt-1">PX 쇼핑, 휴가/외출 식비, 통신요금 등을 기록하여 똑똑하게 소비를 관리하세요.</p>
+          </div>
+          <button onclick="openExpenseModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg flex items-center space-x-1.5 shadow transition">
+            <i class="fa-solid fa-plus"></i>
+            <span>지출 내역 등록</span>
+          </button>
+        </div>
+
+        <!-- 가계부 요약 통계 -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+            <div class="text-xs text-slate-500 font-medium">기록된 총 지출 합계</div>
+            <div class="text-xl font-extrabold text-slate-800 mt-1" id="ledger-total-amount">0원</div>
+          </div>
+          <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+            <div class="text-xs text-slate-500 font-medium">최다 지출 카테고리</div>
+            <div class="text-xl font-extrabold text-emerald-700 mt-1" id="ledger-top-category">-</div>
+          </div>
+          <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+            <div class="text-xs text-slate-500 font-medium">총 지출 건수</div>
+            <div class="text-xl font-extrabold text-indigo-600 mt-1" id="ledger-item-count">0건</div>
+          </div>
+        </div>
+
+        <!-- 가계부 목록 테이블 -->
+        <div class="overflow-x-auto rounded-xl border border-slate-200">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-100 text-slate-700 border-b border-slate-200">
+              <tr>
+                <th class="py-2.5 px-3">날짜</th>
+                <th class="py-2.5 px-3">카테고리</th>
+                <th class="py-2.5 px-3">내용 / 메모</th>
+                <th class="py-2.5 px-3 text-right">금액</th>
+                <th class="py-2.5 px-3 text-center w-16">삭제</th>
+              </tr>
+            </thead>
+            <tbody id="expense-list" class="divide-y divide-slate-100">
+              <tr>
+                <td colspan="5" class="py-8 text-center text-slate-400">데이터를 불러오는 중입니다...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- [3번 탭] 전역 후 목표 자금 배분 화면 (Supabase 연동) -->
+    <section id="tab-goals" class="tab-content hidden">
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-4 border-b border-slate-100 gap-2">
+          <div>
+            <h2 class="text-base font-bold text-slate-800 flex items-center space-x-2">
+              <span>전역 후 목표별 자금 배분 시뮬레이터</span>
+              <span class="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-semibold">Supabase 저장 지원</span>
+            </h2>
+            <p class="text-xs text-slate-500 mt-1">전역 시 수령할 목돈을 여행, 주거, 학업, 시드머니 등 원하는 꿈에 배분해 보세요.</p>
+          </div>
+          <div class="flex space-x-2">
+            <button onclick="openAddGoalModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-lg flex items-center space-x-1 transition">
+              <i class="fa-solid fa-plus"></i>
+              <span>목표 추가</span>
+            </button>
+            <button onclick="saveCurrentGoalsToDb()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg flex items-center space-x-1.5 shadow transition">
+              <i class="fa-solid fa-cloud-arrow-up"></i>
+              <span>목표 설정 저장</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <!-- 목표 배분 리스트 -->
+          <div class="lg:col-span-7 space-y-4">
+            <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center justify-between">
+              <div>
+                <span class="text-xs text-emerald-800 font-semibold">배분 기준 총 자금 (1번 시뮬레이터 연동)</span>
+                <div class="text-lg font-extrabold text-emerald-950" id="goal-total-fund">14,970,000원</div>
+              </div>
+              <div class="text-right">
+                <span class="text-xs text-slate-500 font-semibold">남은 미배분 자금</span>
+                <div class="text-base font-bold" id="goal-remain-fund">0원</div>
+              </div>
+            </div>
+
+            <!-- 목표 동적 리스트 컨테이너 -->
+            <div class="space-y-3" id="goal-items-container">
+              <!-- JS에서 동적 주입 -->
+            </div>
+          </div>
+
+          <!-- 도넛 차트 배분 시각화 -->
+          <div class="lg:col-span-5 flex flex-col items-center justify-center p-6 bg-slate-50 rounded-2xl border border-slate-200">
+            <h3 class="text-xs font-bold text-slate-700 mb-3">목표별 자금 포트폴리오 비중</h3>
+            <div class="w-60 h-60 relative">
+              <canvas id="goalsChart"></canvas>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-4 text-center">각 목표의 슬라이더를 조절하여 최적의 자금 포트폴리오를 만들어보세요.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 가계부 지출 등록 모달 팝업 -->
+  <div id="expense-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 animate-scaleIn">
+      <div class="flex justify-between items-center pb-3 mb-4 border-b border-slate-100">
+        <h3 class="font-bold text-slate-800 text-base flex items-center space-x-2">
+          <i class="fa-solid fa-receipt text-emerald-600"></i>
+          <span>새 지출 내역 등록</span>
+        </h3>
+        <button onclick="closeExpenseModal()" class="text-slate-400 hover:text-slate-600">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <form id="expense-form" onsubmit="handleCreateExpense(event)" class="space-y-3.5">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">지출 일자</label>
+          <input type="date" id="modal-expense-date" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">카테고리</label>
+          <select id="modal-expense-category" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            <option value="PX">PX (식품 / 생필품 / 화장품)</option>
+            <option value="외출/외박">외출 / 외박</option>
+            <option value="휴가">정기 휴가 / 포상 휴가</option>
+            <option value="배달/식비">영내 배달음식 / 치킨·피자</option>
+            <option value="통신/기타">군인 통신비 / 자기계발 / 기타</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">내용 / 메모</label>
+          <input type="text" id="modal-expense-desc" required placeholder="예: PX 슈넬치킨 & 닥터지 수분크림" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">지출 금액 (원)</label>
+          <input type="number" id="modal-expense-amount" required min="100" step="100" placeholder="예: 18500" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+
+        <div class="flex space-x-2 pt-2">
+          <button type="button" onclick="closeExpenseModal()" class="w-1/3 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-lg text-xs font-bold transition">
+            취소
+          </button>
+          <button type="submit" id="modal-submit-btn" class="w-2/3 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-lg text-xs font-bold shadow transition flex items-center justify-center space-x-1.5">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <span>Supabase에 저장</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 새 목표 추가 모달 팝업 -->
+  <div id="goal-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 animate-scaleIn">
+      <div class="flex justify-between items-center pb-3 mb-4 border-b border-slate-100">
+        <h3 class="font-bold text-slate-800 text-base flex items-center space-x-2">
+          <i class="fa-solid fa-bullseye text-emerald-600"></i>
+          <span>새 목표 추가</span>
+        </h3>
+        <button onclick="closeAddGoalModal()" class="text-slate-400 hover:text-slate-600">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <form onsubmit="handleCreateGoal(event)" class="space-y-3.5">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">목표 이름</label>
+          <input type="text" id="modal-goal-title" required placeholder="예: 첫 차 구매, 부모님 효도 여행" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">이모지 아이콘</label>
+          <input type="text" id="modal-goal-icon" value="🚗" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">초기 배분 금액 (원)</label>
+          <input type="number" id="modal-goal-amount" value="1000000" min="0" step="100000" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+        <div class="flex space-x-2 pt-2">
+          <button type="button" onclick="closeAddGoalModal()" class="w-1/3 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-lg text-xs font-bold transition">
+            취소
+          </button>
+          <button type="submit" class="w-2/3 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-lg text-xs font-bold shadow transition">
+            추가하기
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 하단 푸터 -->
+  <footer class="bg-slate-100 border-t border-slate-200 text-center py-6 text-xs text-slate-500 space-y-1.5">
+    <p class="font-medium text-slate-700">
+      🎖️ <span class="text-emerald-700 font-bold">기획 및 제작 :</span> 대한민국 국군 장병들의 빛나는 청춘을 위해 정성을 담아 제작했습니다.
+    </p>
+    <p>© 2026 군 복무 목돈 모으기 & 자금 설계 시뮬레이터 | Built with Supabase, GitHub & Vercel</p>
+  </footer>
+
+  <!-- 프로젝트 스크립트 연결 -->
+  <script src="supabase.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
